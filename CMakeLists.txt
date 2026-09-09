@@ -15,7 +15,7 @@ endif()
 # Standalone project setup
 # ---------------------------------------------------------
 if(PICO_VEML7700_STANDALONE)
-    set(PROJECT pico_veml7700_test)
+    set(PROJECT pico_veml7700_example)
 
     if(DEVICE STREQUAL "seeed_xiao_rp2040")
         set(PICO_BOARD seeed_xiao_rp2040 CACHE STRING "Board type" FORCE)
@@ -38,6 +38,17 @@ if(PICO_VEML7700_STANDALONE)
 
     pico_sdk_init()
 
+    # -----------------------------------------------------
+    # FreeRTOS
+    # -----------------------------------------------------
+    set(FREERTOS_KERNEL_PATH
+        ${CMAKE_CURRENT_LIST_DIR}/lib/FreeRTOS-Kernel
+    )
+
+    include(
+        ${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake
+    )
+
     message(STATUS "DEVICE=${DEVICE}")
     message(STATUS "PICO_BOARD=${PICO_BOARD}")
     message(STATUS "PICO_PLATFORM=${PICO_PLATFORM}")
@@ -51,9 +62,16 @@ add_library(${LIBRARY}
 )
 
 target_include_directories(${LIBRARY} PUBLIC
-    ${CMAKE_CURRENT_LIST_DIR}/include
     ${CMAKE_CURRENT_LIST_DIR}/src
 )
+
+# When building the standalone example, its configuration
+# files are the application-wide FreeRTOS/lwIP configuration.
+if(PICO_VEML7700_STANDALONE)
+    target_include_directories(${LIBRARY} PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/examples/include
+    )
+endif()
 
 target_link_libraries(${LIBRARY} PUBLIC
     pico_stdlib
@@ -64,21 +82,12 @@ target_link_libraries(${LIBRARY} PUBLIC
 # Standalone examples
 # ---------------------------------------------------------
 if(PICO_VEML7700_STANDALONE)
-
-    set(FREERTOS_KERNEL_PATH
-        ${CMAKE_CURRENT_LIST_DIR}/lib/FreeRTOS-Kernel
-    )
-
-    include(
-        ${FREERTOS_KERNEL_PATH}/portable/ThirdParty/GCC/RP2040/FreeRTOS_Kernel_import.cmake
-    )
-
     add_executable(${PROJECT}
-        examples/pico-veml7700-test.cpp
+        examples/main.cpp
     )
 
-    target_include_directories(${PROJECT} PUBLIC
-        include/
+    target_include_directories(${PROJECT} PRIVATE
+        ${CMAKE_CURRENT_LIST_DIR}/examples/include
     )
 
     target_compile_definitions(${PROJECT} PRIVATE
@@ -86,12 +95,11 @@ if(PICO_VEML7700_STANDALONE)
     )
 
     target_link_libraries(${PROJECT}
-        pico_stdlib
         FreeRTOS-Kernel-Heap4
         ${LIBRARY}
     )
 
     pico_enable_stdio_usb(${PROJECT} 1)
-    pico_enable_stdio_uart(${PROJECT} 0)
+    pico_enable_stdio_uart(${PROJECT} 1)
     pico_add_extra_outputs(${PROJECT})
 endif()
